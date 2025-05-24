@@ -29,7 +29,7 @@
 
 
 #ifndef SOFT_UART_ENABLE
-#define SOFT_UART_ENABLE                 				0
+#define SOFT_UART_ENABLE                 				1
 #endif
 
 

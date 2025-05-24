@@ -31,6 +31,8 @@
 #include "app_ui.h"
 #include "app_buffer.h"
 
+#include "rd_log/rd_log.h"
+
 #define 	ADV_IDLE_ENTER_DEEP_TIME			60  //60 s
 #define 	CONN_IDLE_ENTER_DEEP_TIME			60  //60 s
 
@@ -39,7 +41,7 @@
 #define MY_ADV_INTERVAL_MIN			ADV_INTERVAL_30MS
 #define MY_ADV_INTERVAL_MAX			ADV_INTERVAL_35MS
 
-#define MY_RF_POWER_INDEX			RF_POWER_P2p87dBm
+#define MY_RF_POWER_INDEX			RF_POWER_P3p95dBm
 
 #define MY_DIRECT_ADV_TIME			10000000
 
@@ -300,6 +302,69 @@ _attribute_ram_code_ void user_battery_power_check(u16 alarm_vol_mv)
 
 #endif
 
+typedef struct {
+	u8 lengt;       //add1
+	u8 type;
+	u16 Vid;
+	u8 frame;       //add2
+   // u8 null_frame[3];
+	u32 Counter;    //add3
+	u8 type_device; //add4
+	u8 key;
+   // u8 null_key[2];
+	u32 signature;  //add5
+}switchKP9_proxy_t;
+static u32 counter_last=0;
+
+int controller_event_callback (u32 h, u8 *p, int n)
+{
+//	rd_log_test("recv adv\n");
+	if (h &HCI_FLAG_EVENT_BT_STD)		//ble controller hci event
+	{
+		u8 evtCode = h & 0xff;
+
+		if(evtCode == HCI_EVT_LE_META)
+		{
+			u8 subEvt_code = p[0];
+			if (subEvt_code == HCI_SUB_EVT_LE_ADVERTISING_REPORT)	// ADV packet
+			{
+				DBG_CHN6_TOGGLE;
+				//after controller is set to scan state, it will report all the adv packet it received by this event
+
+				event_adv_report_t *pa = (event_adv_report_t *)p;
+//				s8 rssi = (s8)pa->data[pa->len];//rssi has already plus 110.
+//				printf("%ddb, l:%d\n", rssi, pa->len+11);
+				if(pa->len == 15)
+				{
+					switchKP9_proxy_t *KP9_DataRec = (switchKP9_proxy_t *)(pa->data);
+					u32 mac =(u32)( (pa->mac[0] << 24) | (pa->mac[1] << 16) | (pa->mac[2] << 8)| (pa->mac[3]));
+					rd_log_test("count:%d -key: %d,mac : %d\n", KP9_DataRec->Counter, KP9_DataRec->key,mac);
+//					if( (counter_last != KP9_DataRec->Counter) && ((KP9_DataRec->key & 0x80) != 0x80))
+//					{
+//						counter_last = KP9_DataRec->Counter;
+//						u32 mac =(u32)( (pa->mac[0] << 24) | (pa->mac[1] << 16) | (pa->mac[2] << 8)| (pa->mac[3]));
+//						rd_log_test("count:%d -key: %d,mac : %d\n", KP9_DataRec->Counter, KP9_DataRec->key,mac);
+////						u32 mac =(u32)( (pa->mac[0] >>24) | (pa->mac[1] >>16) | (pa->mac[2] >>8)| (pa->mac[3]));
+////						rd_send_message_to_queue(mac, KP9_DataRec->key,KP9_DataRec->Counter,KP9_DataRec->type_device);
+//					}
+
+				}
+
+				#if (DBG_ADV_REPORT_ON_RAM)
+					if(pa->len > 31){
+						pa->len = 31;
+					}
+					memcpy( (u8 *)AA_advRpt[AA_advRpt_index++],  p, pa->len + 11);
+					if(AA_advRpt_index >= RAM_ADV_MAX){
+						AA_advRpt_index = 0;
+					}
+				#endif
+			}
+		}
+	}
+return 0;
+}
+
 /**
  * @brief		user initialization when MCU power on or wake_up from deepSleep mode
  * @param[in]	none
@@ -433,6 +498,7 @@ _attribute_no_inline_ void user_init_normal(void)
 	#if(BLE_APP_SECURITY_ENABLE)
 		u8 bond_number = blc_smp_param_getCurrentBondingDeviceNumber(); 		//get bonded device number
 		smp_param_save_t  bondInfo;
+		rd_log_test("bond_number :%d\n",bond_number);
 		if(bond_number)   //at least 1 bonding device exist
 		{
 			//get the latest bonding device (index: bond_number-1 )
@@ -482,14 +548,32 @@ _attribute_no_inline_ void user_init_normal(void)
 	bls_ll_setScanRspData( (u8 *)tbl_scanRsp, sizeof(tbl_scanRsp));
 	bls_ll_setAdvEnable(BLC_ADV_ENABLE);  //ADV enable
 
+//scan setting
+
+	blc_hci_le_setEventMask_cmd(HCI_LE_EVT_MASK_ADVERTISING_REPORT);
+	blc_hci_registerControllerEventHandler(controller_event_callback);
+
+//	blc_ll_initScanning_module();
+//	blc_hci_le_setEventMask_cmd(HCI_LE_EVT_MASK_ADVERTISING_REPORT);
+//	blc_hci_registerControllerEventHandler(controller_event_callback);
+//	blc_ll_setScanParameter(SCAN_TYPE_PASSIVE, SCAN_INTERVAL_100MS, SCAN_INTERVAL_100MS,
+//								  OWN_ADDRESS_PUBLIC, SCAN_FP_ALLOW_ADV_ANY);
+//
+//	uint8_t err = blc_ll_addScanningInAdvState();  //add scan in adv state
+//	rd_log_test("err: %d\n",err);
+
 	/* set RF power index, user must set it after every suspend wake_up, because relative setting will be reset in suspend */
 	rf_set_power_level_index (MY_RF_POWER_INDEX);
+
+	blt_ll_initScanState();
+	blc_ll_addScanningInAdvState();  //add scan in adv state
+	blc_ll_addScanningInConnSlaveRole();  //add scan in conn slave role
 
 	bls_app_registerEventCallback (BLT_EV_FLAG_CONNECT, &task_connect);
 	bls_app_registerEventCallback (BLT_EV_FLAG_TERMINATE, &task_terminate);
 	bls_app_registerEventCallback (BLT_EV_FLAG_SUSPEND_EXIT, &task_suspend_exit);
 
-
+	rd_log_test("step 0\n");
 	///////////////////// Power Management initialization///////////////////
 	#if(BLE_APP_PM_ENABLE)
 		#if (SAVE_RAM_CODE_ENABLE)
@@ -518,7 +602,7 @@ _attribute_no_inline_ void user_init_normal(void)
 		bls_pm_setSuspendMask (SUSPEND_DISABLE);
 	#endif
 
-
+		rd_log_test("step 1\n");
 	#if (UI_KEYBOARD_ENABLE)
 		/////////// keyboard gpio wakeup init ////////
 		u32 pin[] = KB_DRIVE_PINS;
@@ -535,6 +619,7 @@ _attribute_no_inline_ void user_init_normal(void)
 	 * attention that code will stuck in "while(1)" if any error detected in initialization, user need find what error happens and then fix it */
 	blc_app_checkControllerHostInitialization();
 
+	rd_log_test("end init\n");
 	advertise_begin_tick = clock_time();
 }
 #if (PM_DEEPSLEEP_RETENTION_ENABLE)
@@ -685,9 +770,11 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 void main_loop (void)
 {
 
+//	rd_log_test("loop0\n");
 	////////////////////////////////////// BLE entry /////////////////////////////////
 	blc_sdk_main_loop();
 
+//	rd_log_test("loop1\n");
 	////////////////////////////////////// UI entry /////////////////////////////////
 	///////////////////////////////////// Battery Check ////////////////////////////////
 	#if (APP_BATT_CHECK_ENABLE)
@@ -703,13 +790,15 @@ void main_loop (void)
 		gpio_write(GPIO_LED_GREEN,1);
 	#endif
 
+//		rd_log_test("loop2\n");
 	#if (UI_KEYBOARD_ENABLE)
 		proc_keyboard (0, 0, 0);
 	#endif
 
-
+//		rd_log_test("loop3\n");
 	////////////////////////////////////// PM Process /////////////////////////////////
 	blt_pm_proc();
+//	rd_log_test("loop4\n");
 
 }
 

@@ -29,7 +29,10 @@
 #include "app_att.h"
 #include "app_buffer.h"
 
+#include "rd_log/rd_log.h"
+#include "../common/software_uart.h"
 
+//extern void rd_log(const char *format, ...);
 /**
  * @brief   IRQ handler
  * @param   none.
@@ -73,6 +76,8 @@ int main(void)
 
 	gpio_init( !deepRetWakeUp );  //analog resistance will keep available in deepSleep mode, so no need initialize again
 
+//	rd_uart_init();
+	soft_uart_init();
 	#if (PM_DEEPSLEEP_RETENTION_ENABLE)
 		if( deepRetWakeUp ){
 			user_init_deepRetn ();
@@ -93,8 +98,17 @@ int main(void)
 		wd_start();
 	#endif
 
+
     irq_enable();
 
+//    rd_uart_send_string("hello mng\n");
+//    rd_uart_send_dma((uint8_t *)"hello ble\n",10);
+
+//    soft_uart_send("hello ble\n",10);
+//    int x = 123;
+//    int y = 234;
+//    rd_log("hi: %d\n",x);
+    rd_log_test("hello sample\n");
 	while (1) {
 		#if (MODULE_WATCHDOG_ENABLE)
 			wd_clear(); //clear watch dog

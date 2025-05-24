@@ -24,7 +24,7 @@
 #include "gpio.h"
 #pragma once
 
-#define DEBUG_MODE 0
+#define DEBUG_MODE 1
 
 #if(DEBUG_MODE==1)
 
@@ -58,4 +58,5 @@ static inline void no_printf(const char *format, ...){    return;}
 
 extern void tl_sprintf(char *buff, const char *format, ...);
 #define sprintf		tl_sprintf
+
 

@@ -39,7 +39,7 @@
 #define FIRMWARES_SIGNATURE_ENABLE     		 		0
 
 /* Power Management */
-#define BLE_APP_PM_ENABLE							1
+#define BLE_APP_PM_ENABLE							0
 #define PM_DEEPSLEEP_ENABLE            				0 		//test connection power, should disable deepSleep
 #define PM_DEEPSLEEP_RETENTION_ENABLE               1
 
@@ -70,7 +70,7 @@
 /**
  *  @brief  DEBUG  Configuration
  */
-#define DEBUG_GPIO_ENABLE							0
+#define DEBUG_GPIO_ENABLE							1
 
 
 ///////////////////////// System Clock  Configuration /////////////////////////////////////////
@@ -98,16 +98,16 @@ enum{
 /**
  *  @brief  watchdog enable and timeout setting
  */
-#define MODULE_WATCHDOG_ENABLE						0
-#define WATCHDOG_INIT_TIMEOUT						500  //Unit:ms
+#define MODULE_WATCHDOG_ENABLE						1
+#define WATCHDOG_INIT_TIMEOUT						1000  //Unit:ms
 
 
 /**
  *  @brief  software uart enable and setting
  */
-#define 	SOFT_UART_BAUD_RATE                     9600
-#define 	SOFT_UART_TX_IO                   		GPIO_PD5
-#define 	SOFT_UART_RX_IO                   		GPIO_PD6
+//#define 	SOFT_UART_BAUD_RATE                     9600
+//#define 	SOFT_UART_TX_IO                   		GPIO_PD5
+//#define 	SOFT_UART_RX_IO                   		GPIO_PD6
 
 
 #if (UI_KEYBOARD_ENABLE)   // if test pure power, kyeScan GPIO setting all disabled
